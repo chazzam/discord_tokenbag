@@ -1,0 +1,16 @@
+# This is a flag for allowing us to identify whether we're running in a docker
+# container or not, but is not yet used for changing features/tokens
+DOCKER_CONTAINER=0
+
+# the numerical discord snowflake ID for the P.O.C. for any bot errors
+ERROR_POC="discord_snowflake_id"
+
+# Discord bot application key
+# https://guide.pycord.dev/getting-started/creating-your-first-bot
+# https://discord.com/developers/applications
+PROD_TOKEN='asdf'
+
+# https://en.wikipedia.org/wiki/Template:Discord_Server
+# Enable Developer Mode in discord settings, then right-click on server title
+# and select "Copy ID" to get the server's Guild ID
+DEV_GUILD_ID=1
