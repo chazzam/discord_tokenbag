@@ -4,6 +4,9 @@ version = "0.1.0"
 description = ""
 authors = ["chazzam <6433463+chazzam@users.noreply.github.com>"]
 package-mode = false
+repository = "https://github.com/chazzam/discord_tokenbag"
+readme = "README.rst"
+license = "Apache-2.0"
 
 [tool.poetry.dependencies]
 python = ">=3.10.0,<3.12"

@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # Work with Python 3.10
 # notes:
 # Discord API: https://docs.pycord.dev/en/master/
