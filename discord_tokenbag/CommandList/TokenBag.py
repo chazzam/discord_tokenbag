@@ -9,6 +9,7 @@ from discord import option
 from discord.ext import commands
 
 from tokenbag import TokenBag as bag
+from tokenbag import PullType
 
 
 class TokenBag(commands.Cog):
@@ -116,7 +117,7 @@ class TokenBag(commands.Cog):
                 "Gobstopper Miss": {
                     "Sum Value": -2,
                     "Hit Value": -2,
-                    "Ends Draws": False,
+                    "Ends Draws": True,
                     "Can Flip": True,
                     "Flipped": {
                         "Sum Value": 1,
@@ -140,15 +141,15 @@ class TokenBag(commands.Cog):
         choices=["Unranked", "Bronze", "Silver", "Gold"],
     )
     @option(
-        "fortune",
-        description="Will you spend a fortune on the pull?",
-        choices=["yes", "no"],
+        "pull_type",
+        description="What type of pull is this?",
+        choices=["Skill", "Resistance", "Information Gathering"],
     )
-    async def pull(self, ctx, rank, fortune):
+    async def pull(self, ctx, rank, pull_type):
         logger = logging.getLogger("tipsyTokens.TokenBag.pull")
         logger.info("Trying a pull")
         try:
-            logger.debug(f"Got in rank:{rank} and fortune:{fortune}")
+            logger.debug(f"Got in rank:{rank} and pull type:{pull_type}")
 
             numberRank = 0
             match rank:
@@ -163,45 +164,59 @@ class TokenBag(commands.Cog):
             if rank != "Unranked":
                 rank += " Rank"
 
-            tag = ""
-            fortune_str = ""
-            if fortune == "yes":
-                tag = "fortune-"
-                fortune_str = " with Fortune"
+            ptype = PullType.Skill
+            if pull_type == "Resistance":
+                ptype = PullType.Resistance
+            elif pull_type == "Information Gathering":
+                ptype = PullType.Information
 
             # we want 'pull-order' and 'hits' 'misses' 'crit' 'full' 'partial' 'failure'
             # and the fortune- variants
-            the_pull = self.pool.pull()
+            the_pull = self.pool.pull_one(numberRank, ptype)
             logger.debug("The whole pull:")
             logger.debug(the_pull)
 
-            logger.debug("The max pull:")
-            logger.debug(the_pull[-1])
+            logger.debug(f"Using type:{ptype} and nRank:{numberRank}.")
+            result = ""
 
-            logger.debug(f"Using tag:{tag} and nRank:{numberRank}. We got:")
-            """
-            hits=0
-            misses=0
-            result = "Failure"
-            pull_list=["Fail"]
-            """
-            rPull = the_pull[-1]['ranks'][numberRank]
-            logger.debug(rPull)
-            pull_list = rPull[f'{tag}pull-order'] if f'{tag}pull-order' in rPull else rPull['pull-order']
+            if ptype != PullType.Resistance:
+                bHits = the_pull["hits"]
+                bMisses = the_pull["misses"]
+                bResult = "Failure"
+                if the_pull["crit"]:
+                    bResult = "Critical Success"
+                elif the_pull["full"]:
+                    bResult = "Full Success"
+                elif the_pull["partial"]:
+                    bResult = "Difficult Success"
 
-            hits = rPull[tag + "hits"]
-            misses = rPull[tag + "misses"]
+                fHits = the_pull["fortune-hits"]
+                fMisses = the_pull["fortune-misses"]
+                fResult = "Failure"
+                if the_pull["fortune-crit"]:
+                    fResult = "Critical Success"
+                elif the_pull["fortune-full"]:
+                    fResult = "Full Success"
+                elif the_pull["fortune-partial"]:
+                    fResult = "Difficult Success"
 
-            result = "Failure"
-            if rPull[f"{tag}crit"]:
-                result = "Critical Success"
-            elif rPull[f"{tag}full"]:
-                result = "Full Success"
-            elif rPull[f"{tag}partial"]:
-                result = "Difficult Success"
-            await ctx.respond(
-                f"At {rank}{fortune_str} you pulled a {result} from {hits} hits and {misses} misses with: {', '.join(pull_list)}"
-            )
+                result = (
+                    f"You did a {pull_type} pull at {rank}:\n"
+                    f"Without Fortune you drew: {', '.join(the_pull['pull-order'])}. "
+                    f"This results in a {bResult} from {bHits} hits and {bMisses} misses.\n\n"
+                    f"With Fortune you drew: {', '.join(the_pull['fortune-pull-order'])}. "
+                    f"This results in a {fResult} from {fHits} hits and {fMisses} misses."
+                )
+            else:
+                result = (
+                    f"You did a {pull_type} pull at {rank} and "
+                    f"drew: {', '.join(the_pull['pull-order'])}.\n"
+                    f"This results in:\n"
+                    f"- Spending {the_pull['costs']['lost']} fortune.\n"
+                    f"- Taking {the_pull['costs']['taken']} fortune and converting it into Karma.\n"
+                    f"- With up to {the_pull['costs']['mitigated']} of those costs being able to be spent from Karma instead of the Fortune pool."
+                )
+            await ctx.respond(result)
         except Exception as e:
             logger.error(
                 f"Experienced an error\n{type(e).__name__}: {e}\n{traceback.format_exc()}"

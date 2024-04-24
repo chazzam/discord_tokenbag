@@ -465,7 +465,7 @@ cli = ["click (>=5.0)"]
 
 [[package]]
 name = "tokenbag"
-version = "0.1.1"
+version = "0.3.2.5"
 description = ""
 optional = false
 python-versions = ">=3.10.0,<3.12"
