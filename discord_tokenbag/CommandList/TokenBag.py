@@ -143,7 +143,7 @@ class TokenBag(commands.Cog):
     @option(
         "pull_type",
         description="What type of pull is this?",
-        choices=["Skill", "Resistance", "Information Gathering"],
+        choices=["Action", "Resistance", "Befell"],
     )
     async def pull(self, ctx, rank, pull_type):
         logger = logging.getLogger("tipsyTokens.TokenBag.pull")
@@ -164,58 +164,104 @@ class TokenBag(commands.Cog):
             if rank != "Unranked":
                 rank += " Rank"
 
-            ptype = PullType.Skill
+            ptype = PullType.Action
             if pull_type == "Resistance":
                 ptype = PullType.Resistance
-            elif pull_type == "Information Gathering":
-                ptype = PullType.Information
+            elif pull_type == "Befell":
+                ptype = PullType.Befell
 
             # we want 'pull-order' and 'hits' 'misses' 'crit' 'full' 'partial' 'failure'
             # and the fortune- variants
-            the_pull = self.pool.pull_one(numberRank, ptype)
+            the_pull_list = self.pool.pull_one(numberRank, ptype)
             logger.debug("The whole pull:")
-            logger.debug(the_pull)
+            logger.debug(the_pull_list)
 
             logger.debug(f"Using type:{ptype} and nRank:{numberRank}.")
             result = ""
 
-            if ptype != PullType.Resistance:
+            if ptype == PullType.Befell:
+                the_pull = the_pull_list[0]
                 bHits = the_pull["hits"]
-                bMisses = the_pull["misses"]
-                bResult = "Failure"
-                if the_pull["crit"]:
-                    bResult = "Critical Success"
-                elif the_pull["full"]:
-                    bResult = "Full Success"
-                elif the_pull["partial"]:
-                    bResult = "Difficult Success"
-
-                fHits = the_pull["fortune-hits"]
-                fMisses = the_pull["fortune-misses"]
-                fResult = "Failure"
-                if the_pull["fortune-crit"]:
-                    fResult = "Critical Success"
-                elif the_pull["fortune-full"]:
-                    fResult = "Full Success"
-                elif the_pull["fortune-partial"]:
-                    fResult = "Difficult Success"
-
-                result = (
-                    f"You did a {pull_type} pull at {rank}:\n"
-                    f"Without Fortune you drew: {', '.join(the_pull['pull-order'])}. "
-                    f"This results in a {bResult} from {bHits} hits and {bMisses} misses.\n\n"
-                    f"With Fortune you drew: {', '.join(the_pull['fortune-pull-order'])}. "
-                    f"This results in a {fResult} from {fHits} hits and {fMisses} misses."
+                bResult = (
+                    "**Poor Outcomes** (enough information to know where to look, "
+                    "a highly ephemeral version of something, Desperate Positioning.)"
                 )
-            else:
+                if bHits >= 3:
+                    bResult = (
+                        "**Incredible Outcomes** (unbelievably useful information, exquisite "
+                        "version of something from the rucksack, Controlled Positioning)"
+                    )
+                elif bHits >= 2:
+                    bResult = (
+                        "**Very Good Outcomes** (actionable and useful information, exceptional "
+                        "version of something, Controlled Positioning)"
+                    )
+                elif bHits >= 1:
+                    bResult = (
+                        "**Mediocre Outcomes** (actionable information, a usable version of "
+                        "something, Risky Positioning)"
+                    )
+
                 result = (
                     f"You did a {pull_type} pull at {rank} and "
-                    f"drew: {', '.join(the_pull['pull-order'])}.\n"
-                    f"This results in:\n"
-                    f"- Spending {the_pull['costs']['lost']} fortune.\n"
-                    f"- Taking {the_pull['costs']['taken']} fortune and converting it into Karma.\n"
-                    f"- With up to {the_pull['costs']['mitigated']} of those costs being able to be spent from Karma instead of the Fortune pool."
+                    f"drew {bHits} hits via:\n*{', '.join(the_pull['pull-order'])}*.\n\n"
+                    f"This results in {bResult}\n"
                 )
+            elif ptype == PullType.Resistance:
+                the_pull = the_pull_list[0]
+                result = (
+                    f"You did a {pull_type} pull at {rank} and "
+                    f"drew:\n*{', '.join(the_pull['pull-order'])}*.\n"
+                    f"This results in:\n"
+                    f"- Losing {the_pull['costs']['lost']} fortune.\n"
+                    f"- Taking {the_pull['costs']['taken']} fortune and"
+                    " converting it into your own Karma.\n"
+                    f"- With up to {the_pull['costs']['mitigated']} of any lost fortune able to be spent from Karma instead of the Fortune pool."
+                )
+                if the_pull["costs"]["mitigated"] >= 3:
+                    result = (
+                        f"You did a {pull_type} pull at {rank} and "
+                        f"drew:\n*{', '.join(the_pull['pull-order'])}*.\n"
+                        f"This results in:\n"
+                        "- ***Three Hits!*** One Fortune is returned to the game as your Karma!"
+                    )
+            else:
+                result = f"You did an Action pull at {rank}:\n"
+                spoiler_begin = ""
+                spoiler_end = ""
+                for the_pull in the_pull_list:
+                    bHits = the_pull["hits"]
+                    bMisses = the_pull["misses"]
+                    bResult = "Failure"
+                    if the_pull["crit"]:
+                        bResult = "Critical Success"
+                    elif the_pull["full"]:
+                        bResult = "Success"
+                    elif the_pull["partial"]:
+                        bResult = "Success with Consequences"
+
+                    fHits = the_pull["fortune-hits"]
+                    fMisses = the_pull["fortune-misses"]
+                    fResult = "Failure"
+                    if the_pull["fortune-crit"]:
+                        fResult = "Critical Success"
+                    elif the_pull["fortune-full"]:
+                        fResult = "Success"
+                    elif the_pull["fortune-partial"]:
+                        fResult = "Success with Consequences"
+
+                    result += (
+                        "~~                                               ~~\n"
+                        f"{spoiler_begin}"
+                        f"- Without Fortune you drew: *{', '.join(the_pull['pull-order'])}*. "
+                        f"This results in a **{bResult}** from {bHits} hits and {bMisses} misses.\n"
+                        f"- With Fortune you drew: *{', '.join(the_pull['fortune-pull-order'])}*. "
+                        f"This results in a **{fResult}** from {fHits} hits and {fMisses} misses."
+                        f"{spoiler_end}\n"
+                    )
+                    spoiler_begin = "Draw Again?:\n||"
+                    spoiler_end = "||"
+
             await ctx.respond(result)
         except Exception as e:
             logger.error(
